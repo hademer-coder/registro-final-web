@@ -1,7 +1,3 @@
-<div className="bg-blue-600 text-white p-5 text-2xl">
-  TAILWIND FUNCIONA
-</div>
-
 import React, { useMemo, useState } from "react";
 
 type Nivel = "" | "AD" | "A" | "B" | "C";
@@ -34,6 +30,7 @@ type ReporteEstudiante = {
   recomendaciones: string[];
   logroFinal1: Nivel;
   logroFinal2: Nivel;
+  reporteIA?: string;
 };
 type UnidadAprendizaje = {
   codigo: "U1" | "U2";
@@ -861,12 +858,14 @@ function StudentReportModal({
   student,
   report,
   area,
+  loadingIA,
   onClose,
 }: {
   open: boolean;
   student: Student | null;
   report: ReporteEstudiante | null;
   area: AreaKey;
+  loadingIA: boolean;
   onClose: () => void;
 }) {
   if (!open || !student || !report) return null;
@@ -891,18 +890,30 @@ function StudentReportModal({
           </div>
         </div>
         <div className="mt-4 space-y-3 text-sm text-slate-700">
-          <div>
-            <div className="font-semibold">Logros</div>
-            <ul className="list-disc pl-5">{report.logros.map((item, i) => <li key={"l" + i}>{item}</li>)}</ul>
-          </div>
-          <div>
-            <div className="font-semibold">Dificultades</div>
-            <ul className="list-disc pl-5">{report.dificultades.map((item, i) => <li key={"d" + i}>{item}</li>)}</ul>
-          </div>
-          <div>
-            <div className="font-semibold">Recomendaciones</div>
-            <ul className="list-disc pl-5">{report.recomendaciones.map((item, i) => <li key={"r" + i}>{item}</li>)}</ul>
-          </div>
+          {loadingIA ? (
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-blue-800">
+              Generando reporte con inteligencia artificial...
+            </div>
+          ) : report.reporteIA ? (
+            <div className="whitespace-pre-line rounded-2xl border border-slate-200 bg-slate-50 p-4 leading-relaxed text-slate-800">
+              {report.reporteIA}
+            </div>
+          ) : (
+            <>
+              <div>
+                <div className="font-semibold">Logros</div>
+                <ul className="list-disc pl-5">{report.logros.map((item, i) => <li key={"l" + i}>{item}</li>)}</ul>
+              </div>
+              <div>
+                <div className="font-semibold">Dificultades</div>
+                <ul className="list-disc pl-5">{report.dificultades.map((item, i) => <li key={"d" + i}>{item}</li>)}</ul>
+              </div>
+              <div>
+                <div className="font-semibold">Recomendaciones</div>
+                <ul className="list-disc pl-5">{report.recomendaciones.map((item, i) => <li key={"r" + i}>{item}</li>)}</ul>
+              </div>
+            </>
+          )}
         </div>
         <div className="mt-6 text-right">
           <button type="button" onClick={onClose} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
@@ -1437,6 +1448,10 @@ function ResumenAcademicoModal({
 }
 
 export default function App() {
+  const [loginOk, setLoginOk] = useState(false);
+  const [usuario, setUsuario] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorLogin, setErrorLogin] = useState("");
   const [mostrarInfo, setMostrarInfo] = useState(false);
   const [mostrarUnidad, setMostrarUnidad] = useState(false);
   const [unidadActiva, setUnidadActiva] = useState<UnidadAprendizaje | null>(null);
@@ -1449,6 +1464,8 @@ export default function App() {
   const [filtroRiesgo, setFiltroRiesgo] = useState<FiltroRiesgo>("todos");
   const [studentReportOpen, setStudentReportOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [reporteIA, setReporteIA] = useState<string>("");
+  const [loadingReporteIA, setLoadingReporteIA] = useState(false);
   const [notaMasiva, setNotaMasiva] = useState<Exclude<Nivel, "">>("A");
   const [mostrarResumenAcademico, setMostrarResumenAcademico] = useState(false);
 
@@ -1475,9 +1492,42 @@ export default function App() {
     setMostrarUnidad(true);
   };
 
-  const openStudentReport = (student: Student) => {
+  const openStudentReport = async (student: Student) => {
     setSelectedStudent(student);
+    setReporteIA("");
     setStudentReportOpen(true);
+
+    const reporteBase = buildStudentReportLocal(registros[student.id], area);
+    const apiUrl = (globalThis as typeof globalThis & { __OPENAI_REPORT_API_URL__?: string }).__OPENAI_REPORT_API_URL__;
+
+    if (!apiUrl) return;
+
+    try {
+      setLoadingReporteIA(true);
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          estudiante: student.nombre,
+          area,
+          grado,
+          seccion,
+          logroFinal1: reporteBase.logroFinal1,
+          logroFinal2: reporteBase.logroFinal2,
+          logros: reporteBase.logros,
+          dificultades: reporteBase.dificultades,
+          recomendaciones: reporteBase.recomendaciones,
+        }),
+      });
+
+      if (!response.ok) throw new Error("No se pudo generar el reporte con IA");
+      const data = await response.json();
+      setReporteIA(String(data.reporte || data.texto || ""));
+    } catch {
+      setReporteIA("No se pudo generar el reporte con inteligencia artificial. Se mantiene el reporte automático local.");
+    } finally {
+      setLoadingReporteIA(false);
+    }
   };
 
   const updateNivel = (studentId: number, unidad: UnidadKey, index: number, value: Nivel) => {
@@ -1507,7 +1557,62 @@ export default function App() {
     setRegistros(createInitialState());
   };
 
-  const currentReport = selectedStudent ? buildStudentReportLocal(registros[selectedStudent.id], area) : null;
+  const currentReport = selectedStudent
+    ? { ...buildStudentReportLocal(registros[selectedStudent.id], area), reporteIA }
+    : null;
+
+  const ingresar = () => {
+    if (usuario === "ademer" && password === "1234") {
+      setLoginOk(true);
+      setErrorLogin("");
+      return;
+    }
+    setErrorLogin("Usuario o contraseña incorrectos");
+  };
+
+  if (!loginOk) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
+        <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-lg">
+          <h1 className="text-center text-2xl font-bold text-slate-800">
+            Acceso al sistema
+          </h1>
+          <p className="mt-2 text-center text-sm text-slate-600">
+            Registro Auxiliar de Evaluación
+          </p>
+
+          <div className="mt-6 space-y-4">
+            <input
+              value={usuario}
+              onChange={(e) => setUsuario(e.target.value)}
+              placeholder="Usuario"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none"
+            />
+
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Contraseña"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none"
+            />
+
+            {errorLogin && (
+              <p className="text-sm font-medium text-red-600">{errorLogin}</p>
+            )}
+
+            <button
+              type="button"
+              onClick={ingresar}
+              className="w-full rounded-xl bg-[#1E3A8A] px-4 py-3 text-sm font-bold text-white shadow"
+            >
+              Ingresar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   console.assert(valueToNivel(3.6) === "AD", "3.6 debe devolver AD");
   console.assert(valueToNivel(2.6) === "A", "2.6 debe devolver A");
@@ -1521,13 +1626,20 @@ export default function App() {
         <div className="rounded-3xl bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight md:text-4xl">
-                REGISTRO AUXILIAR DE EVALUACIÓN DE LOS APRENDIZAJES
-              </h1>
-              <p className="mt-2 text-sm text-slate-600 md:text-base">
-                Área: <span className="font-semibold">{area}</span>
-              </p>
-              <div className="mt-3 flex flex-wrap gap-3">
+              <div>
+                <h1 className="text-center text-2xl font-bold tracking-tight md:text-4xl">
+                  REGISTRO AUXILIAR DE EVALUACIÓN DE LOS APRENDIZAJES
+                </h1>
+
+                <p className="mt-1 text-center text-sm font-semibold text-slate-600">
+                  Por ADEMER HUAHUACONDORI ARANDA - Diseñador de Aprendizajes
+                </p>
+                <p className="mt-2 text-sm text-slate-600 md:text-base">
+                  Área: <span className="font-semibold">{area}</span>
+                </p>
+              </div>
+
+              <div className="mt-3 flex flex-wrap justify-center gap-3 lg:justify-start">
                 <button
                   type="button"
                   onClick={() => openUnidad("U1")}
@@ -1543,8 +1655,6 @@ export default function App() {
                   UNIDAD DE APRENDIZAJE II
                 </button>
               </div>
-            </div>
-            <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
                 {([
                   "Matemática",
@@ -1796,6 +1906,7 @@ export default function App() {
         student={selectedStudent}
         report={currentReport}
         area={area}
+        loadingIA={loadingReporteIA}
         onClose={() => setStudentReportOpen(false)}
       />
       <ResumenAcademicoModal
