@@ -1808,3 +1808,48 @@ export default function App() {
     </div>
   );
 }
+
+const [acceso, setAcceso] = useState(false)
+const [user, setUser] = useState("")
+const [pass, setPass] = useState("")
+
+if (!acceso) {
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-slate-900">
+      <div className="bg-white p-8 rounded-2xl shadow-xl w-[350px] text-center">
+        
+        <h2 className="text-xl font-bold mb-4">Acceso al Sistema</h2>
+
+        <input
+          type="text"
+          placeholder="Usuario"
+          className="w-full mb-3 p-2 border rounded"
+          onChange={(e) => setUser(e.target.value)}
+        />
+
+        <input
+          type="password"
+          placeholder="Contraseña"
+          className="w-full mb-4 p-2 border rounded"
+          onChange={(e) => setPass(e.target.value)}
+        />
+
+        <button
+          className="bg-blue-600 text-white px-4 py-2 rounded w-full"
+          onClick={() => {
+            if (user === "ademer" && pass === "1234") {
+              setAcceso(true)
+            }
+          }}
+        >
+          Ingresar
+        </button>
+
+        <p className="mt-4 text-sm text-gray-500">
+          Por ADEMER HUAHUACONDORI ARANDA - Diseñador de Aprendizajes
+        </p>
+
+      </div>
+    </div>
+  )
+}
