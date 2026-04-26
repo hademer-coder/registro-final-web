@@ -1,3 +1,7 @@
+<div className="bg-blue-600 text-white p-5 text-2xl">
+  TAILWIND FUNCIONA
+</div>
+
 import React, { useMemo, useState } from "react";
 
 type Nivel = "" | "AD" | "A" | "B" | "C";
