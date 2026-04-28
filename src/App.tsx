@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 type Nivel = "" | "AD" | "A" | "B" | "C";
 type UnidadKey = "unidad1" | "unidad2";
@@ -1456,7 +1456,10 @@ export default function App() {
   const [mostrarUnidad, setMostrarUnidad] = useState(false);
   const [unidadActiva, setUnidadActiva] = useState<UnidadAprendizaje | null>(null);
   const [temaInfo, setTemaInfo] = useState("");
-  const [registros, setRegistros] = useState<RegistroState>(createInitialState());
+  const [registros, setRegistros] = useState<RegistroState>(() => {
+    const saved = localStorage.getItem("registro_auxiliar_notas");
+    return saved ? JSON.parse(saved) : createInitialState();
+  });
   const [grado, setGrado] = useState("6.º grado");
   const [seccion] = useState("C");
   const [area, setArea] = useState<AreaKey>("Matemática");
@@ -1472,6 +1475,10 @@ export default function App() {
   const units = unitsByArea[area];
   const sessionCount = getSessionCount(area);
   const sessionLabels = sessionCount === 10 ? sessionLabels10 : sessionLabels5;
+
+  useEffect(() => {
+    localStorage.setItem("registro_auxiliar_notas", JSON.stringify(registros));
+  }, [registros]);
 
   const estudiantesFiltrados = useMemo(() => {
     const query = busqueda.trim().toLowerCase();
