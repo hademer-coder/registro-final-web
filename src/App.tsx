@@ -1478,7 +1478,16 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem("registro_auxiliar_notas", JSON.stringify(registros));
-  }, [registros]);
+
+    fetch("https://script.google.com/macros/s/AKfycbyQYrRcH-4cUaL6ZGHOuN6xMiK6eN_YHEY1wMODvIxYbkIND4O9_xYz8BYc7txIB9aEIw/exec", {
+      method: "POST",
+      mode: "no-cors",
+      body: JSON.stringify({
+        area,
+        registros,
+      }),
+    }).catch(() => {});
+  }, [registros, area]);
 
   const estudiantesFiltrados = useMemo(() => {
     const query = busqueda.trim().toLowerCase();
