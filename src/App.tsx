@@ -1464,18 +1464,6 @@ export default function App() {
   const [seccion] = useState("C");
   const [area, setArea] = useState<AreaKey>("Matemática");
   const [busqueda, setBusqueda] = useState("");
-
-useEffect(() => {
-  fetch("https://script.google.com/macros/s/AKfycbyQYrRcH-4cUaL6ZGHOuN6xMiK6eN_YHEY1wMODvIxYbkIND4O9_xYz8BYc7txIB9aEIw/exec")
-    .then(res => res.json())
-    .then(data => {
-      if (data.registros) {
-        setRegistros(data.registros);
-      }
-    })
-    .catch(() => {});
-}, []);
-
   const [filtroRiesgo, setFiltroRiesgo] = useState<FiltroRiesgo>("todos");
   const [studentReportOpen, setStudentReportOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -1488,38 +1476,9 @@ useEffect(() => {
   const sessionCount = getSessionCount(area);
   const sessionLabels = sessionCount === 10 ? sessionLabels10 : sessionLabels5;
 
-useEffect(() => {
-  localStorage.setItem("registro_auxiliar_notas", JSON.stringify(registros));
-
-  fetch("https://script.google.com/macros/s/AKfycbyQYrRcH-4cUaL6ZGHOuN6xMiK6eN_YHEY1wMODvIxYbkIND4O9_xYz8BYc7txIB9aEIw/exec", {
-    method: "POST",
-    body: JSON.stringify({
-      area,
-      registros,
-    }),
-  }).catch(() => {});
-}, [registros]);
-
-  fetch("https://script.google.com/macros/s/AKfycbyQYrRcH-4cUaL6ZGHOuN6xMiK6eN_YHEY1wMODvIxYbkIND4O9_xYz8BYc7txIB9aEIw/exec", {
-    method: "POST",
-    body: JSON.stringify({
-      area,
-      registros,
-    }),
-  }).catch(() => {});
-}, [registros]);
-
-  fetch("https://script.google.com/macros/s/AKfycbyQYrRcH-4cUaL6ZGHOuN6xMiK6eN_YHEY1wMODvIxYbkIND4O9_xYz8BYc7txIB9aEIw/exec", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      area,
-      registros,
-    }),
-  }).catch(() => {});
-}, [registros]);
+  useEffect(() => {
+    localStorage.setItem("registro_auxiliar_notas", JSON.stringify(registros));
+  }, [registros]);
 
   const estudiantesFiltrados = useMemo(() => {
     const query = busqueda.trim().toLowerCase();
