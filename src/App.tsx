@@ -1493,6 +1493,15 @@ useEffect(() => {
 
   fetch("https://script.google.com/macros/s/AKfycbyQYrRcH-4cUaL6ZGHOuN6xMiK6eN_YHEY1wMODvIxYbkIND4O9_xYz8BYc7txIB9aEIw/exec", {
     method: "POST",
+    body: JSON.stringify({
+      area,
+      registros,
+    }),
+  }).catch(() => {});
+}, [registros]);
+
+  fetch("https://script.google.com/macros/s/AKfycbyQYrRcH-4cUaL6ZGHOuN6xMiK6eN_YHEY1wMODvIxYbkIND4O9_xYz8BYc7txIB9aEIw/exec", {
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
