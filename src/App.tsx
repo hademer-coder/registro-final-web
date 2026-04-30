@@ -1472,35 +1472,51 @@ export default function App() {
   const [notaMasiva, setNotaMasiva] = useState<Exclude<Nivel, "">>("A");
   const [mostrarResumenAcademico, setMostrarResumenAcademico] = useState(false);
   const [nubeCargada, setNubeCargada] = useState(false);
+  const [estadoGuardado, setEstadoGuardado] = useState("Cargando datos de la nube...");
+  const [ultimoCambio, setUltimoCambio] = useState<Record<string, string> | null>(null);
 
   const units = unitsByArea[area];
   const sessionCount = getSessionCount(area);
   const sessionLabels = sessionCount === 10 ? sessionLabels10 : sessionLabels5;
 
   useEffect(() => {
-    fetch("https://script.google.com/macros/s/AKfycbyQYrRcH-4cUaL6ZGHOuN6xMiK6eN_YHEY1wMODvIxYbkIND4O9_xYz8BYc7txIB9aEIw/exec")
+    setNubeCargada(false);
+    setEstadoGuardado("Cargando datos de la nube...");
+
+    const params = new URLSearchParams({ grado, seccion, area });
+
+    fetch("https://script.google.com/macros/s/AKfycbyQYrRcH-4cUaL6ZGHOuN6xMiK6eN_YHEY1wMODvIxYbkIND4O9_xYz8BYc7txIB9aEIw/exec?" + params.toString())
       .then((res) => res.json())
       .then((data) => {
         if (data.registros) {
           setRegistros(data.registros);
         }
       })
-      .finally(() => setNubeCargada(true))
-      .catch(() => setNubeCargada(true));
-  }, []);
+      .then(() => setEstadoGuardado("✔ Datos cargados desde la nube"))
+      .catch(() => setEstadoGuardado("No se pudo cargar desde la nube"))
+      .finally(() => setNubeCargada(true));
+  }, [grado, seccion, area]);
 
   useEffect(() => {
     if (!nubeCargada) return;
     localStorage.setItem("registro_auxiliar_notas", JSON.stringify(registros));
+    setEstadoGuardado("Guardando en la nube...");
 
     fetch("https://script.google.com/macros/s/AKfycbyQYrRcH-4cUaL6ZGHOuN6xMiK6eN_YHEY1wMODvIxYbkIND4O9_xYz8BYc7txIB9aEIw/exec", {
       method: "POST",
       mode: "no-cors",
       body: JSON.stringify({
+        id: grado + "_" + seccion + "_" + area,
+        grado,
+        seccion,
         area,
         registros,
+        ultimoCambio,
       }),
-    }).catch(() => {});
+    })
+      .then(() => setEstadoGuardado("✔ Guardado en la nube"))
+      .catch(() => setEstadoGuardado("No se pudo guardar en la nube"));
+  }, [registros, area, grado, seccion, ultimoCambio, nubeCargada]);
   }, [registros, area]);
 
   const estudiantesFiltrados = useMemo(() => {
@@ -1561,6 +1577,15 @@ export default function App() {
   };
 
   const updateNivel = (studentId: number, unidad: UnidadKey, index: number, value: Nivel) => {
+    const student = students.find((item) => item.id === studentId);
+    setUltimoCambio({
+      tipo: "nota_individual",
+      estudiante: student?.nombre || String(studentId),
+      unidad,
+      sesion: String(index + 1),
+      valor: value || "-",
+      fecha: new Date().toLocaleString(),
+    });
     setRegistros((prev) => ({
       ...prev,
       [studentId]: {
@@ -1571,6 +1596,14 @@ export default function App() {
   };
 
   const aplicarNotaMasiva = (unidad: UnidadKey, index: number, value: Exclude<Nivel, "">) => {
+    setUltimoCambio({
+      tipo: "nota_masiva",
+      estudiante: "Todos los estudiantes",
+      unidad,
+      sesion: String(index + 1),
+      valor: value,
+      fecha: new Date().toLocaleString(),
+    });
     setRegistros((prev) => {
       const next: RegistroState = { ...prev };
       for (const student of students) {
@@ -1584,6 +1617,14 @@ export default function App() {
   };
 
   const limpiarTodo = () => {
+    setUltimoCambio({
+      tipo: "limpieza_total",
+      estudiante: "Todos los estudiantes",
+      unidad: "-",
+      sesion: "-",
+      valor: "-",
+      fecha: new Date().toLocaleString(),
+    });
     setRegistros(createInitialState());
   };
 
@@ -1737,6 +1778,9 @@ export default function App() {
                 </select>
               </div>
             </div>
+          </div>
+          <div className="mt-4 text-sm font-semibold text-slate-600">
+            {estadoGuardado}
           </div>
           <div className="mt-4 flex flex-wrap gap-3">
             <div className="rounded-2xl bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700">
