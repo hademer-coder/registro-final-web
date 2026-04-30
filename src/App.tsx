@@ -1498,7 +1498,6 @@ export default function App() {
   }, [grado, seccion, area]);
 
   useEffect(() => {
-    if (!nubeCargada) return;
     localStorage.setItem("registro_auxiliar_notas", JSON.stringify(registros));
     setEstadoGuardado("Guardando en la nube...");
 
