@@ -1477,7 +1477,25 @@ export default function App() {
   const sessionLabels = sessionCount === 10 ? sessionLabels10 : sessionLabels5;
 
   useEffect(() => {
-    localStorage.setItem("registro_auxiliar_notas", JSON.stringify(registros));
+  localStorage.setItem("registro_auxiliar_notas", JSON.stringify(registros));
+
+  const enviar = async () => {
+    try {
+      await fetch("https://script.google.com/macros/s/AKfycbyQYrRcH-4cUaL6ZGHOuN6xMiK6eN_YHEY1wMODvIxYbkIND4O9_xYz8BYc7txIB9aEIw/exec", {
+        method: "POST",
+        body: JSON.stringify({
+          area,
+          registros,
+        }),
+      });
+    } catch (e) {
+      console.log("No se pudo enviar");
+    }
+  };
+
+  enviar();
+
+}, [registros, area]);
 
     fetch("https://script.google.com/macros/s/AKfycbyQYrRcH-4cUaL6ZGHOuN6xMiK6eN_YHEY1wMODvIxYbkIND4O9_xYz8BYc7txIB9aEIw/exec", {
       method: "POST",
