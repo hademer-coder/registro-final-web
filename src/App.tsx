@@ -94,6 +94,15 @@ const sessionLabels10 = [
   "Sesión 10",
 ];
 const nivelToValue: Record<Exclude<Nivel, "">, number> = { AD: 4, A: 3, B: 2, C: 1 };
+const areaKeys: AreaKey[] = [
+  "Matemática",
+  "Comunicación",
+  "Personal Social",
+  "Ciencia y Tecnología",
+  "Religión",
+  "Razonamiento Matemático",
+  "Razonamiento Verbal",
+];
 
 const unidadesAprendizaje: Record<"U1" | "U2", UnidadAprendizaje> = {
   U1: {
@@ -648,6 +657,13 @@ function createInitialState(): RegistroState {
   return state;
 }
 
+function createInitialStateByArea(): Record<AreaKey, RegistroState> {
+  return areaKeys.reduce((acc, areaItem) => {
+    acc[areaItem] = createInitialState();
+    return acc;
+  }, {} as Record<AreaKey, RegistroState>);
+}
+
 function calcLogroFinal(values: Nivel[]): Nivel {
   const valid = values.filter((v): v is Exclude<Nivel, ""> => v !== "");
   if (valid.length === 0) return "";
@@ -743,6 +759,111 @@ function exportToExcelCompatible(registros: RegistroState, area: AreaKey): void 
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+function buildReportePedagogicoIA(
+  student: Student,
+  registro: Record<UnidadKey, Nivel[]>,
+  area: AreaKey,
+): string {
+  const reporte = buildStudentReportLocal(registro, area);
+  const interpretar = (nivel: Nivel) => {
+    if (nivel === "AD") return "logro destacado, evidenciando dominio solvente de los aprendizajes propuestos";
+    if (nivel === "A") return "logro esperado, demostrando avance satisfactorio en las competencias del área";
+    if (nivel === "B") return "proceso de consolidación, por lo que requiere acompañamiento y práctica guiada";
+    if (nivel === "C") return "inicio del desarrollo esperado, requiriendo apoyo permanente y seguimiento cercano";
+    return "registro pendiente de consolidación";
+  };
+
+  return [
+    "INFORME PEDAGÓGICO AUTOMÁTICO",
+    "Estudiante: " + student.nombre,
+    "Área: " + area,
+    "",
+    "Síntesis del desempeño:",
+    "El estudiante presenta en la I Unidad un " + interpretar(reporte.logroFinal1) + ". En la II Unidad evidencia un " + interpretar(reporte.logroFinal2) + ". Este reporte se genera a partir de los niveles registrados en el sistema, considerando el progreso evidenciado en las sesiones de aprendizaje.",
+    "",
+    "Fortalezas:",
+    "- Participa en el proceso de aprendizaje del área de " + area + ".",
+    "- Evidencia avances según los niveles de logro consignados en el registro auxiliar.",
+    "",
+    "Aspectos por fortalecer:",
+    "- Reforzar los aprendizajes que aún se encuentran en proceso o inicio.",
+    "- Desarrollar actividades de práctica, retroalimentación y seguimiento según el nivel alcanzado.",
+    "",
+    "Recomendaciones:",
+    "- Mantener una práctica constante y organizada.",
+    "- Revisar las sesiones con menor nivel de logro para fortalecer la competencia correspondiente.",
+    "- Acompañar el avance del estudiante mediante actividades breves de refuerzo y evidencias de mejora.",
+  ].join("
+");
+}
+
+function exportarDatosColumnasExcel(registros: RegistroState, area: AreaKey, grado: string, seccion: string): void {
+  const sessionCount = getSessionCount(area);
+  let html = "<table border='1'>";
+  html += "<tr><th>N°</th><th>APELLIDOS Y NOMBRES</th><th>GRADO</th><th>SECCIÓN</th><th>ÁREA</th>";
+  unitsByArea[area].unidad1.sesiones.slice(0, sessionCount).forEach((s, i) => html += "<th>U1 S" + (i + 1) + " - " + s + "</th>");
+  html += "<th>LOGRO FINAL U1</th>";
+  unitsByArea[area].unidad2.sesiones.slice(0, sessionCount).forEach((s, i) => html += "<th>U2 S" + (i + 1) + " - " + s + "</th>");
+  html += "<th>LOGRO FINAL U2</th></tr>";
+
+  students.forEach((student) => {
+    const u1 = registros[student.id].unidad1.slice(0, sessionCount);
+    const u2 = registros[student.id].unidad2.slice(0, sessionCount);
+    html += "<tr>";
+    html += "<td>" + student.id + "</td><td>" + student.nombre + "</td><td>" + grado + "</td><td>" + seccion + "</td><td>" + area + "</td>";
+    u1.forEach((v) => html += "<td>" + (v || "-") + "</td>");
+    html += "<td>" + (calcLogroFinal(u1) || "-") + "</td>";
+    u2.forEach((v) => html += "<td>" + (v || "-") + "</td>");
+    html += "<td>" + (calcLogroFinal(u2) || "-") + "</td>";
+    html += "</tr>";
+  });
+
+  html += "</table>";
+  const uri = "data:application/vnd.ms-excel;charset=utf-8," + encodeURIComponent(html);
+  const link = document.createElement("a");
+  link.href = uri;
+  link.download = "datos_columnas_" + grado.replace(/ /g, "_") + "_" + seccion + "_" + area.replace(/ /g, "_") + ".xls";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function exportarBoletinesMINEDU(registros: RegistroState, area: AreaKey, grado: string, seccion: string): void {
+  const sessionCount = getSessionCount(area);
+  let html = "<html><head><meta charset='utf-8'><style>body{font-family:Arial,sans-serif;color:#0f172a} .boletin{page-break-after:always;border:2px solid #1e3a8a;border-radius:18px;padding:22px;margin:18px} h1{text-align:center;color:#1e3a8a;font-size:20px;margin:0} h2{text-align:center;font-size:16px;margin:6px 0 18px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}.box{border:1px solid #cbd5e1;border-radius:12px;padding:10px}.nivel{font-size:28px;font-weight:bold;color:#1e3a8a;text-align:center}.texto{line-height:1.45;text-align:justify}.firma{margin-top:30px;text-align:center}</style></head><body>";
+
+  students.forEach((student) => {
+    const u1 = registros[student.id].unidad1.slice(0, sessionCount);
+    const u2 = registros[student.id].unidad2.slice(0, sessionCount);
+    const logro1 = calcLogroFinal(u1) || "-";
+    const logro2 = calcLogroFinal(u2) || "-";
+    const reporteIA = buildReportePedagogicoIA(student, registros[student.id], area).replace(/
+/g, "<br>");
+
+    html += "<div class='boletin'>";
+    html += "<h1>BOLETÍN DE PROGRESO DE LOS APRENDIZAJES</h1>";
+    html += "<h2>Formato institucional tipo MINEDU</h2>";
+    html += "<div class='grid'>";
+    html += "<div class='box'><b>Estudiante:</b><br>" + student.nombre + "</div>";
+    html += "<div class='box'><b>Grado y sección:</b><br>" + grado + " - " + seccion + "</div>";
+    html += "<div class='box'><b>Área:</b><br>" + area + "</div>";
+    html += "<div class='box'><b>Docente:</b><br>LIC. ADEMER HUAHUACONDORI ARANDA</div>";
+    html += "</div>";
+    html += "<div class='grid'><div class='box'><b>Logro final I Unidad</b><div class='nivel'>" + logro1 + "</div></div><div class='box'><b>Logro final II Unidad</b><div class='nivel'>" + logro2 + "</div></div></div>";
+    html += "<div class='box texto'>" + reporteIA + "</div>";
+    html += "<div class='firma'>_____________________________<br>Firma del docente</div>";
+    html += "</div>";
+  });
+
+  html += "</body></html>";
+  const w = window.open("", "_blank");
+  if (!w) return;
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  w.print();
 }
 
 function InfoModal({
@@ -1456,9 +1577,9 @@ export default function App() {
   const [mostrarUnidad, setMostrarUnidad] = useState(false);
   const [unidadActiva, setUnidadActiva] = useState<UnidadAprendizaje | null>(null);
   const [temaInfo, setTemaInfo] = useState("");
-  const [registros, setRegistros] = useState<RegistroState>(() => {
-    const saved = localStorage.getItem("registro_auxiliar_notas");
-    return saved ? JSON.parse(saved) : createInitialState();
+  const [registrosPorArea, setRegistrosPorArea] = useState<Record<AreaKey, RegistroState>>(() => {
+    const saved = localStorage.getItem("registro_auxiliar_notas_por_area");
+    return saved ? JSON.parse(saved) : createInitialStateByArea();
   });
   const [grado, setGrado] = useState("6.º grado");
   const [seccion] = useState("C");
@@ -1473,6 +1594,16 @@ export default function App() {
   const [mostrarResumenAcademico, setMostrarResumenAcademico] = useState(false);
   const [nubeCargada, setNubeCargada] = useState(false);
 
+  const registros = registrosPorArea[area] ?? createInitialState();
+
+  const setRegistros = (value: RegistroState | ((prev: RegistroState) => RegistroState)) => {
+    setRegistrosPorArea((prev) => {
+      const current = prev[area] ?? createInitialState();
+      const nextArea = typeof value === "function" ? value(current) : value;
+      return { ...prev, [area]: nextArea };
+    });
+  };
+
   const units = unitsByArea[area];
   const sessionCount = getSessionCount(area);
   const sessionLabels = sessionCount === 10 ? sessionLabels10 : sessionLabels5;
@@ -1481,8 +1612,8 @@ export default function App() {
     fetch("https://script.google.com/macros/s/AKfycbyQYrRcH-4cUaL6ZGHOuN6xMiK6eN_YHEY1wMODvIxYbkIND4O9_xYz8BYc7txIB9aEIw/exec")
       .then((res) => res.json())
       .then((data) => {
-        if (data.registros) {
-          setRegistros(data.registros);
+        if (data.registros && areaKeys.some((areaItem) => data.registros[areaItem])) {
+          setRegistrosPorArea({ ...createInitialStateByArea(), ...data.registros });
         }
       })
       .finally(() => setNubeCargada(true))
@@ -1491,17 +1622,17 @@ export default function App() {
 
   useEffect(() => {
     if (!nubeCargada) return;
-    localStorage.setItem("registro_auxiliar_notas", JSON.stringify(registros));
+    localStorage.setItem("registro_auxiliar_notas_por_area", JSON.stringify(registrosPorArea));
 
     fetch("https://script.google.com/macros/s/AKfycbyQYrRcH-4cUaL6ZGHOuN6xMiK6eN_YHEY1wMODvIxYbkIND4O9_xYz8BYc7txIB9aEIw/exec", {
       method: "POST",
       mode: "no-cors",
       body: JSON.stringify({
-        area,
-        registros,
+        area: "TODAS LAS ÁREAS",
+        registros: registrosPorArea,
       }),
     }).catch(() => {});
-  }, [registros, area]);
+  }, [registrosPorArea, nubeCargada]);
 
   const estudiantesFiltrados = useMemo(() => {
     const query = busqueda.trim().toLowerCase();
@@ -1686,15 +1817,7 @@ export default function App() {
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {([
-                  "Matemática",
-                  "Comunicación",
-                  "Personal Social",
-                  "Ciencia y Tecnología",
-                  "Religión",
-                  "Razonamiento Matemático",
-                  "Razonamiento Verbal",
-                ] as AreaKey[]).map((areaItem) => (
+                {areaKeys.map((areaItem) => (
                   <button
                     key={areaItem}
                     type="button"
@@ -1754,6 +1877,20 @@ export default function App() {
               className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white"
             >
               Exportar Excel (.xls)
+            </button>
+            <button
+              type="button"
+              onClick={() => exportarDatosColumnasExcel(registros, area, grado, seccion)}
+              className="rounded-2xl bg-cyan-700 px-4 py-2 text-sm font-semibold text-white"
+            >
+              Datos en columnas
+            </button>
+            <button
+              type="button"
+              onClick={() => exportarBoletinesMINEDU(registros, area, grado, seccion)}
+              className="rounded-2xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white"
+            >
+              Boletines MINEDU
             </button>
             <button
               type="button"
