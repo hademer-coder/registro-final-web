@@ -1471,31 +1471,27 @@ export default function App() {
   const [loadingReporteIA, setLoadingReporteIA] = useState(false);
   const [notaMasiva, setNotaMasiva] = useState<Exclude<Nivel, "">>("A");
   const [mostrarResumenAcademico, setMostrarResumenAcademico] = useState(false);
+  const [nubeCargada, setNubeCargada] = useState(false);
 
   const units = unitsByArea[area];
   const sessionCount = getSessionCount(area);
   const sessionLabels = sessionCount === 10 ? sessionLabels10 : sessionLabels5;
 
   useEffect(() => {
-  localStorage.setItem("registro_auxiliar_notas", JSON.stringify(registros));
+    fetch("https://script.google.com/macros/s/AKfycbyQYrRcH-4cUaL6ZGHOuN6xMiK6eN_YHEY1wMODvIxYbkIND4O9_xYz8BYc7txIB9aEIw/exec")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.registros) {
+          setRegistros(data.registros);
+        }
+      })
+      .finally(() => setNubeCargada(true))
+      .catch(() => setNubeCargada(true));
+  }, []);
 
-  const enviar = async () => {
-    try {
-      await fetch("https://script.google.com/macros/s/AKfycbyQYrRcH-4cUaL6ZGHOuN6xMiK6eN_YHEY1wMODvIxYbkIND4O9_xYz8BYc7txIB9aEIw/exec", {
-        method: "POST",
-        body: JSON.stringify({
-          area,
-          registros,
-        }),
-      });
-    } catch (e) {
-      console.log("No se pudo enviar");
-    }
-  };
-
-  enviar();
-
-}, [registros, area]);
+  useEffect(() => {
+    if (!nubeCargada) return;
+    localStorage.setItem("registro_auxiliar_notas", JSON.stringify(registros));
 
     fetch("https://script.google.com/macros/s/AKfycbyQYrRcH-4cUaL6ZGHOuN6xMiK6eN_YHEY1wMODvIxYbkIND4O9_xYz8BYc7txIB9aEIw/exec", {
       method: "POST",
