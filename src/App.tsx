@@ -761,111 +761,6 @@ function exportToExcelCompatible(registros: RegistroState, area: AreaKey): void 
   document.body.removeChild(link);
 }
 
-function buildReportePedagogicoIA(
-  student: Student,
-  registro: Record<UnidadKey, Nivel[]>,
-  area: AreaKey,
-): string {
-  const reporte = buildStudentReportLocal(registro, area);
-  const interpretar = (nivel: Nivel) => {
-    if (nivel === "AD") return "logro destacado, evidenciando dominio solvente de los aprendizajes propuestos";
-    if (nivel === "A") return "logro esperado, demostrando avance satisfactorio en las competencias del área";
-    if (nivel === "B") return "proceso de consolidación, por lo que requiere acompañamiento y práctica guiada";
-    if (nivel === "C") return "inicio del desarrollo esperado, requiriendo apoyo permanente y seguimiento cercano";
-    return "registro pendiente de consolidación";
-  };
-
-  return [
-    "INFORME PEDAGÓGICO AUTOMÁTICO",
-    "Estudiante: " + student.nombre,
-    "Área: " + area,
-    "",
-    "Síntesis del desempeño:",
-    "El estudiante presenta en la I Unidad un " + interpretar(reporte.logroFinal1) + ". En la II Unidad evidencia un " + interpretar(reporte.logroFinal2) + ". Este reporte se genera a partir de los niveles registrados en el sistema, considerando el progreso evidenciado en las sesiones de aprendizaje.",
-    "",
-    "Fortalezas:",
-    "- Participa en el proceso de aprendizaje del área de " + area + ".",
-    "- Evidencia avances según los niveles de logro consignados en el registro auxiliar.",
-    "",
-    "Aspectos por fortalecer:",
-    "- Reforzar los aprendizajes que aún se encuentran en proceso o inicio.",
-    "- Desarrollar actividades de práctica, retroalimentación y seguimiento según el nivel alcanzado.",
-    "",
-    "Recomendaciones:",
-    "- Mantener una práctica constante y organizada.",
-    "- Revisar las sesiones con menor nivel de logro para fortalecer la competencia correspondiente.",
-    "- Acompañar el avance del estudiante mediante actividades breves de refuerzo y evidencias de mejora.",
-  ].join("
-");
-}
-
-function exportarDatosColumnasExcel(registros: RegistroState, area: AreaKey, grado: string, seccion: string): void {
-  const sessionCount = getSessionCount(area);
-  let html = "<table border='1'>";
-  html += "<tr><th>N°</th><th>APELLIDOS Y NOMBRES</th><th>GRADO</th><th>SECCIÓN</th><th>ÁREA</th>";
-  unitsByArea[area].unidad1.sesiones.slice(0, sessionCount).forEach((s, i) => html += "<th>U1 S" + (i + 1) + " - " + s + "</th>");
-  html += "<th>LOGRO FINAL U1</th>";
-  unitsByArea[area].unidad2.sesiones.slice(0, sessionCount).forEach((s, i) => html += "<th>U2 S" + (i + 1) + " - " + s + "</th>");
-  html += "<th>LOGRO FINAL U2</th></tr>";
-
-  students.forEach((student) => {
-    const u1 = registros[student.id].unidad1.slice(0, sessionCount);
-    const u2 = registros[student.id].unidad2.slice(0, sessionCount);
-    html += "<tr>";
-    html += "<td>" + student.id + "</td><td>" + student.nombre + "</td><td>" + grado + "</td><td>" + seccion + "</td><td>" + area + "</td>";
-    u1.forEach((v) => html += "<td>" + (v || "-") + "</td>");
-    html += "<td>" + (calcLogroFinal(u1) || "-") + "</td>";
-    u2.forEach((v) => html += "<td>" + (v || "-") + "</td>");
-    html += "<td>" + (calcLogroFinal(u2) || "-") + "</td>";
-    html += "</tr>";
-  });
-
-  html += "</table>";
-  const uri = "data:application/vnd.ms-excel;charset=utf-8," + encodeURIComponent(html);
-  const link = document.createElement("a");
-  link.href = uri;
-  link.download = "datos_columnas_" + grado.replace(/ /g, "_") + "_" + seccion + "_" + area.replace(/ /g, "_") + ".xls";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-function exportarBoletinesMINEDU(registros: RegistroState, area: AreaKey, grado: string, seccion: string): void {
-  const sessionCount = getSessionCount(area);
-  let html = "<html><head><meta charset='utf-8'><style>body{font-family:Arial,sans-serif;color:#0f172a} .boletin{page-break-after:always;border:2px solid #1e3a8a;border-radius:18px;padding:22px;margin:18px} h1{text-align:center;color:#1e3a8a;font-size:20px;margin:0} h2{text-align:center;font-size:16px;margin:6px 0 18px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}.box{border:1px solid #cbd5e1;border-radius:12px;padding:10px}.nivel{font-size:28px;font-weight:bold;color:#1e3a8a;text-align:center}.texto{line-height:1.45;text-align:justify}.firma{margin-top:30px;text-align:center}</style></head><body>";
-
-  students.forEach((student) => {
-    const u1 = registros[student.id].unidad1.slice(0, sessionCount);
-    const u2 = registros[student.id].unidad2.slice(0, sessionCount);
-    const logro1 = calcLogroFinal(u1) || "-";
-    const logro2 = calcLogroFinal(u2) || "-";
-    const reporteIA = buildReportePedagogicoIA(student, registros[student.id], area).replace(/
-/g, "<br>");
-
-    html += "<div class='boletin'>";
-    html += "<h1>BOLETÍN DE PROGRESO DE LOS APRENDIZAJES</h1>";
-    html += "<h2>Formato institucional tipo MINEDU</h2>";
-    html += "<div class='grid'>";
-    html += "<div class='box'><b>Estudiante:</b><br>" + student.nombre + "</div>";
-    html += "<div class='box'><b>Grado y sección:</b><br>" + grado + " - " + seccion + "</div>";
-    html += "<div class='box'><b>Área:</b><br>" + area + "</div>";
-    html += "<div class='box'><b>Docente:</b><br>LIC. ADEMER HUAHUACONDORI ARANDA</div>";
-    html += "</div>";
-    html += "<div class='grid'><div class='box'><b>Logro final I Unidad</b><div class='nivel'>" + logro1 + "</div></div><div class='box'><b>Logro final II Unidad</b><div class='nivel'>" + logro2 + "</div></div></div>";
-    html += "<div class='box texto'>" + reporteIA + "</div>";
-    html += "<div class='firma'>_____________________________<br>Firma del docente</div>";
-    html += "</div>";
-  });
-
-  html += "</body></html>";
-  const w = window.open("", "_blank");
-  if (!w) return;
-  w.document.write(html);
-  w.document.close();
-  w.focus();
-  w.print();
-}
-
 function InfoModal({
   open,
   tema,
@@ -1877,20 +1772,6 @@ export default function App() {
               className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white"
             >
               Exportar Excel (.xls)
-            </button>
-            <button
-              type="button"
-              onClick={() => exportarDatosColumnasExcel(registros, area, grado, seccion)}
-              className="rounded-2xl bg-cyan-700 px-4 py-2 text-sm font-semibold text-white"
-            >
-              Datos en columnas
-            </button>
-            <button
-              type="button"
-              onClick={() => exportarBoletinesMINEDU(registros, area, grado, seccion)}
-              className="rounded-2xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white"
-            >
-              Boletines MINEDU
             </button>
             <button
               type="button"
